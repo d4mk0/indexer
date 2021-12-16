@@ -70,3 +70,7 @@ type Fetcher interface {
 >> go run main.go
 ```
 
+## Testing
+```sh
+>> go test -v test/*/**
+```

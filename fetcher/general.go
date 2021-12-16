@@ -28,6 +28,7 @@ const (
 	SuperrareUrl        = "https://superrare.com/api/v2/user?address=%s"
 	RaribleFollowingUrl = "https://api-mainnet.rarible.com/marketplace/api/v4/followings?owner=%s"
 	RaribleFollowerUrl  = "https://api-mainnet.rarible.com/marketplace/api/v4/followers?user=%s"
+	TwitterSybilListUrl = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json"
 )
 
 type ConnectionEntryList struct {
@@ -231,4 +232,12 @@ type FoundationIdentity struct {
 			} `json:"instaSocialVerifs"`
 		} `json:"user"`
 	} `json:"data"`
+}
+
+type TwitterSybilList map[string]struct {
+	Twitter struct {
+		Timestamp uint64 `json:"timestamp"`
+		TweetId   string `json:"tweetID"`
+		Handle    string `json:"handle"`
+	} `json:"twitter"`
 }

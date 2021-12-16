@@ -7,6 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.12
 	github.com/imdario/mergo v0.3.12
 	github.com/ryboe/q v1.0.15 // indirect
+	github.com/valyala/fastjson v1.6.3 // indirect
 	github.com/wealdtech/go-ens/v3 v3.5.1
 	go.uber.org/zap v1.19.1
 )

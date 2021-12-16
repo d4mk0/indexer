@@ -3,11 +3,14 @@ package fetcher
 import (
 	"encoding/json"
 	"fmt"
+	"bytes"
+
+	"github.com/valyala/fastjson"
 
 	"go.uber.org/zap"
 )
 
-const IdentityApiCount = 2
+const IdentityApiCount = 3
 
 func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 
@@ -19,8 +22,8 @@ func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 	go f.processContext(address, ch)
 	// Superrare API
 	go f.processSuperrare(address, ch)
-	// Part 2 - Add other data source here
-	// TODO
+	// Poap API
+	go f.processPoap(address, ch)
 
 	// Final Part - Merge entry
 	for i := 0; i < IdentityApiCount; i++ {
@@ -53,6 +56,9 @@ func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 		}
 		if entry.Showtime != nil {
 			identityArr.Showtime = append(identityArr.Showtime, *entry.Showtime)
+		}
+		if entry.Poap != nil {
+			identityArr.Poap = append(identityArr.Poap, entry.Poap...)
 		}
 		if entry.Ens != nil {
 			identityArr.Ens = entry.Ens.Ens
@@ -183,4 +189,109 @@ func (f *fetcher) processSuperrare(address string, ch chan<- IdentityEntry) {
 	}
 
 	ch <- result
+}
+
+func (f *fetcher) processPoap(address string, ch chan<- IdentityEntry) {
+	var result IdentityEntry
+
+	body, err := sendRequest(f.httpClient, RequestArgs{
+		url:    fmt.Sprintf(PoapScanUrl, address),
+		method: "GET",
+	})
+
+	if err != nil {
+		result.Err = err
+		result.Msg = "[processPoap] fetch identity failed"
+		ch <- result
+		return
+	}
+
+	parsedBody, err := fastjson.ParseBytes(body)
+
+	if err != nil {
+		result.Err = err
+		result.Msg = "[processPoap] parse response json failed"
+		ch <- result
+		return
+	}
+
+	for _, addrToken := range parsedBody.GetArray() {
+		eventObj := addrToken.Get("event")
+
+		userPoapIdentity := UserPoapIdentity{
+			EventID:    	eventObj.GetInt("id"),
+			EventSupply: 	eventObj.GetInt("supply"),
+			Year:       	eventObj.GetInt("year"),
+			Supply:				addrToken.GetInt("supply"),
+			TokenID:    	string(addrToken.GetStringBytes("tokenId")),
+			Owner:      	string(addrToken.GetStringBytes("owner")),
+			CreatedDate:	string(addrToken.GetStringBytes("created_date")),
+			EventDesc:  	string(eventObj.GetStringBytes("description")),
+			FancyID:    	string(eventObj.GetStringBytes("fancy_id")),
+			EventName:  	string(eventObj.GetStringBytes("name")),
+			EventUrl:   	string(eventObj.GetStringBytes("event_url")),
+			ImageUrl:   	string(eventObj.GetStringBytes("image_url")),
+			Country:    	string(eventObj.GetStringBytes("country")),
+			City:       	string(eventObj.GetStringBytes("city")),
+			StartDate:  	string(eventObj.GetStringBytes("start_date")),
+			EndDate:    	string(eventObj.GetStringBytes("end_date")),
+			ExpiryDate: 	string(eventObj.GetStringBytes("expiry_date")),
+			DataSource: 	POAP,
+		}
+
+		requestQueryParams := map[string]string{
+			"query": fmt.Sprintf(`
+				{
+					event(id: "%d") {
+						tokens {
+							id
+							owner {
+								id
+							}
+						}
+					}
+				}
+			 `, eventObj.GetInt("id")),
+		}
+
+		requestQueryBytes, _ := json.Marshal(requestQueryParams)
+
+		body, err := sendRequest(f.httpClient, RequestArgs{
+			url:    PoapSubgraphsUrl,
+			method: "POST",
+			body:   bytes.NewBuffer(requestQueryBytes).Bytes(),
+		})
+
+		if err != nil {
+			result.Err = err
+			result.Msg = "[processPoap] fetch recommendations failed"
+			ch <- result
+			return
+		}
+
+		parsedBody, err := fastjson.ParseBytes(body)
+
+		if err != nil {
+			result.Err = err
+			result.Msg = "[processPoap] parse recommendation response json failed"
+			ch <- result
+			return
+		}
+
+		var poapRecommendationsResult []PoapRecommendation
+
+		for _, graphToken := range parsedBody.GetArray("data", "event", "tokens") {
+			poapRecommendationsResult = append(poapRecommendationsResult, PoapRecommendation{
+				TokenID: string(graphToken.GetStringBytes("id")),
+				Address: string(graphToken.GetStringBytes("owner", "id")),
+				EventID: eventObj.GetInt("id"),
+			})
+		}
+
+		userPoapIdentity.Recommendations = poapRecommendationsResult
+		result.Poap = append(result.Poap, userPoapIdentity)
+	}
+
+	ch <- result
+	return
 }

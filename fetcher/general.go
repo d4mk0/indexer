@@ -4,7 +4,7 @@ const (
 	RARIBLE    = "Rarible"
 	CONTEXT    = "Context"
 	CONVO      = "Convo"
-	TWITTER    = "Twtter"
+	TWITTER    = "Twitter"
 	OPENSEA    = "Opensea"
 	ZORA       = "Zora"
 	FOUNDATION = "Foundation"

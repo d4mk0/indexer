@@ -158,7 +158,7 @@ func (f *fetcher) processSuperrare(address string, ch chan<- IdentityEntry) {
 	err = json.Unmarshal(body, &sprProfile)
 	if err != nil {
 		result.Err = err
-		result.Msg = "[processSuperrare] identity response json unmarshal failednti"
+		result.Msg = "[processSuperrare] identity response json unmarshal failed"
 		ch <- result
 		return
 	}
